@@ -1,21 +1,19 @@
-import requests
-import os
-from dataclasses import dataclass
-from typing import Callable, List, Dict, Optional
 import binascii
+import json
+import os
 import random
 import string
-from eth_sandbox import hashcash
+from dataclasses import dataclass
+from typing import Callable, Dict, List, Optional
+from uuid import UUID
 
+import requests
+from eth_account import Account
+from hexbytes import HexBytes
 from web3 import Web3
 from web3.types import TxReceipt
-from eth_account import Account
-import json
 
-from eth_sandbox import load_auth_key
-from hexbytes import HexBytes
-
-from uuid import UUID
+from eth_sandbox import hashcash, load_auth_key
 
 HTTP_PORT = os.getenv("HTTP_PORT", "8545")
 INTERNAL_URL = os.getenv("INTERNAL_URL", f"http://127.0.0.1:{HTTP_PORT}")
@@ -39,13 +37,17 @@ class Action:
     name: str
     handler: Callable[[], int]
 
+
 GANACHE_UNLOCK = "evm_unlockUnknownAccount"
 GANACHE_LOCK = "evm_lockUnknownAccount"
 
 HARDHAT_UNLOCK = "hardhat_impersonateAccount"
 HARDHAT_LOCK = "hardhat_stopImpersonatingAccount"
 
-def send_tx(web3: Web3, tx: Dict, deployer: str, is_hardhat: Optional[bool]) -> Optional[TxReceipt]:
+
+def send_tx(
+    web3: Web3, tx: Dict, deployer: str, is_hardhat: Optional[bool]
+) -> Optional[TxReceipt]:
     if "gas" not in tx:
         tx["gas"] = 9_500_000
 
@@ -97,14 +99,17 @@ def check_pow() -> bool:
 
 
 def new_launch_instance_action(
-    contract_name: str = "contracts/Setup.sol:Setup", 
+    contract_name: str = "contracts/Setup.sol:Setup",
     deploy_value: int = 0,
     get_other_txs: Optional[Callable[[str], List[Dict]]] = None,
 ):
     is_hardhat: bool = False
     with open("/home/ctf/compiled.bin", "r") as f:
         compiled = json.load(f)
-        if compiled["contracts"].get("contracts/YieldAggregator.sol:YieldAggregator") is not None:
+        if (
+            compiled["contracts"].get("contracts/YieldAggregator.sol:YieldAggregator")
+            is not None
+        ):
             is_hardhat = True
 
     def action() -> int:
@@ -121,8 +126,7 @@ def new_launch_instance_action(
             headers["Node-Type"] = "hardhat"
 
         data = requests.post(
-            f"{INTERNAL_URL}/new",
-            headers=headers,
+            f"{INTERNAL_URL}/new", headers=headers, timeout=1800
         ).json()
 
         if data["ok"] == False:
@@ -139,6 +143,7 @@ def new_launch_instance_action(
                     "X-Auth-Key": load_auth_key(),
                     "Content-Type": "application/json",
                 },
+                "timeout": 1800,
             },
         )
         web3 = Web3(provider)
@@ -159,19 +164,21 @@ def new_launch_instance_action(
                 return 1
             return deployed
 
-        setup_addr = send_txs([
-            {
-                "from": "0x000000000000000000000000000000000000dEaD",
-                "to": "deployer",
-                "value": Web3.toWei(10000, "ether"),
-            },
-            {
-                "from": "deployer",
-                "value": deploy_value,
-                "data": load_bytecode(contract_name),
-            },
-        ])
-        
+        setup_addr = send_txs(
+            [
+                {
+                    "from": "0x000000000000000000000000000000000000dEaD",
+                    "to": "deployer",
+                    "value": Web3.toWei(10000, "ether"),
+                },
+                {
+                    "from": "deployer",
+                    "value": deploy_value,
+                    "data": load_bytecode(contract_name),
+                },
+            ]
+        )
+
         if get_other_txs:
             send_txs(get_other_txs(setup_addr))
 
@@ -229,7 +236,6 @@ def new_get_flag_action(
         return 0
 
     return Action(name="get flag", handler=action)
-
 
 
 def run_launcher(actions: List[Action]):

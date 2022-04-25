@@ -1,23 +1,19 @@
-from web3 import Web3
-from dataclasses import dataclass
-from threading import Thread, Lock
-from typing import Tuple, Dict, Any
-from uuid import uuid4
-import sys
 import os
-
-from eth_account.hdaccount import generate_mnemonic
-
-import socket
-
 import random
+import socket
+import subprocess
+import sys
 import time
-
-from flask import Flask, request, redirect, Response
-from flask_cors import CORS, cross_origin
+from dataclasses import dataclass
+from threading import Lock, Thread
+from typing import Any, Dict, Tuple
+from uuid import uuid4
 
 import requests
-import subprocess
+from eth_account.hdaccount import generate_mnemonic
+from flask import Flask, Response, redirect, request
+from flask_cors import CORS, cross_origin
+from web3 import Web3
 
 from eth_sandbox import *
 
@@ -27,6 +23,7 @@ CORS(app)
 RPC_URL = os.getenv("RPC_URL")
 
 HARDHAT_MNEMONIC = "test test test test test test test test test test test junk"
+
 
 @dataclass
 class NodeInfo:
@@ -40,7 +37,7 @@ instances: Dict[str, NodeInfo] = {}
 
 
 def kill_ganache(node_info: NodeInfo):
-    time.sleep(60 * 30)
+    time.sleep(60 * 3000)
     print(f"killing node {node_info.uuid}")
     del instances[node_info.uuid]
     node_info.proc.kill()
@@ -166,6 +163,7 @@ def create():
 
 ALLOWED_NAMESPACES = ["web3", "eth", "net"]
 
+
 @app.route("/<string:uuid>", methods=["POST"])
 @cross_origin()
 def proxy(uuid):
@@ -195,7 +193,7 @@ def proxy(uuid):
                 "message": "invalid request",
             },
         }
-    
+
     ok = any(body["method"].startswith(namespace) for namespace in ALLOWED_NAMESPACES)
     key = request.headers.get("X-Auth-Key")
     if not ok and key != auth_key:

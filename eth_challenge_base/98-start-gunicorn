@@ -5,4 +5,4 @@ gunicorn \
     --daemon \
     --access-logfile /var/log/ctf/gunicorn.access.log \
     --error-logfile /var/log/ctf/gunicorn.error.log \
-    eth_sandbox.server:app
+    eth_sandbox.server:app --timeout 1800
